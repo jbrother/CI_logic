@@ -1,0 +1,282 @@
+\documentclass[envcountsame,envcountsect]{llncs}
+
+% Import packages
+\usepackage{amsmath,amssymb,mathtools,proof,stmaryrd}
+\let\proof\relax
+\let\endproof\relax
+\usepackage{amsthm}
+\usepackage{url}
+\usepackage{prooftree}
+
+%% Various math notations
+
+\renewcommand{\iff}{\Leftrightarrow}
+\renewcommand{\vec}[1]{\mathbf{#1}}
+\newcommand{\pow}[1]{\operatorname{Pow}(#1)}
+\newcommand{\defeq}{=_{\textrm{\scriptsize{def}}}}
+\newcommand{\restrict}{\upharpoonright}
+\newcommand{\nat}{\mathbb{N}}
+\newcommand{\ints}{\mathbb{Z}}
+\newcommand{\partialfn}{\rightharpoonup}
+\newcommand{\finpartialfn}{\partialfn_{\textrm{\tiny fin}}}
+
+%% Separation logic notations
+\newcommand{\var}{\mathsf{Var}}
+\newcommand{\pvar}{\mathsf{Props}}
+\newcommand{\nil}{\mathsf{nil}}
+\newcommand{\nilv}{\mathit{nil}}
+\newcommand{\emp}{\mathsf{emp}}
+\newcommand{\seq}[2]{\mbox{$#1 \vdash #2$}}
+\newcommand{\fv}[1]{FV(#1)}
+\newcommand{\SL}{\mathsf{SL}}
+\newcommand{\htriple}[3]{\mbox{$\{#1\}\,#2\,\{#3\}$}}
+\newcommand{\dom}[1]{\mathrm{dom}\left(#1\right)}
+\newcommand{\sem}[1]{\llbracket#1\rrbracket}
+\newcommand{\val}{{\sf Val}}
+\newcommand{\loc}{{\sf Loc}}
+\newcommand{\stacks}{{\sf Stack}}
+\newcommand{\heaps}{{\sf Heap}}
+\newcommand{\bigsepstar}{\mathop{\raisebox{-1ex}{{\Huge $*$}}}}
+\newcommand{\bigsepcirc}{\displaystyle\mathop{\raisebox{0ex}{$\bigcirc$}}}
+\newcommand{\wand}{%
+  \mathrel{\mbox{$\hspace*{-0.03em}\mathord{-}\hspace*{-0.66em}
+  \mathord{-}\hspace*{-0.36em}\mathord{*}$\hspace*{-0.005em}}}}
+\newcommand{\lolly}{%
+  \mathrel{\mbox{$\hspace*{-0.03em}\mathord{-}\hspace*{-0.66em}
+  \mathord{-}\hspace*{-0.16em}\mathord{\otimes}$\hspace*{-0.005em}}}}
+
+%% Probability theory notations
+\newcommand{\rvar}{\mathsf{RVar}}
+\newcommand{\false}{\bot}
+\newcommand{\true}{\top}
+%\newcommand{\prob}{\mathbb{P}}
+\newcommand{\prob}{\mathsf{P}}
+\newcommand{\indep}[3]{I({#1},{#2},{#3})}
+
+%% Custom non-numbered theorem environment ``ourproblem'' for named problems or theorems
+ \theoremstyle{plain}
+ \newcommand{\thistheoremname}{}
+ \newtheorem*{genericthm}{\thistheoremname}
+ \newenvironment{ourproblem}[1]
+   {\renewcommand{\thistheoremname}{#1}\begin{genericthm}}{\end{genericthm}}
+
+%% Author comments
+\newcommand{\authorcomment}[2]{
+\begin{center}
+\fbox{
+%  \begin{minipage}{3.1in}
+\begin{minipage}{.9\textwidth}
+{\bf #1:} {\it #2}
+\end{minipage}}
+\end{center}}
+\newcommand{\jbcomment}[1]{\authorcomment{James' comment}{#1}}
+\newcommand{\dpcomment}[1]{\authorcomment{David's comment}{#1}}
+\newcommand{\pohcomment}[1]{\authorcomment{Peter's comment}{#1}}
+
+\begin{document}
+\title{Conditional Independence Separation Logic}
+
+\author{James Brotherston\inst{1} \and Peter O'Hearn\inst{1,2}
+\and David Pym\inst{1}}
+
+\institute{University College London, UK
+%\and Middlesex University, UK
+\and Facebook, UK}
+
+\maketitle
+
+\begin{abstract}
+abstract here
+\end{abstract}
+
+\keywords keywords here
+
+
+
+\section{Introduction}
+\label{sec:introduction}
+
+The principles of \emph{independence} and \emph{locality}, in different guises, show up in a surprising number of theories and applications in very disparate areas of science.  Roughly speaking, the well-known principle of locality in physics states that, if two objects $A$ and $B$ are physically separated by a non-trivial distance, then a physical change to $B$ cannot affect $A$.  Einstein and his colleagues made an early critique of quantum mechanical theory based on the observation that its predictions must either violate the principle of locality, or permit communications between quantum-entangled particles via some ``hidden parameters''~\cite{Einstein-Podolsky-Rosen:35}.  (This is the source of Einstein's famous assertion that ``God does not play dice''.) Later, Bell responded by publishing his famous theorem stating that the predictions of quantum mechanics are fundamentally at odds with the principle of locality~\cite{Bell:64}.
+
+Bell's notion of locality is formulated using the well-known concept of \emph{conditional independence} of random variables in probability theory.  Given some fixed joint probability function $P$, the discrete random variables $X$ and $Y$ are said to be \emph{conditionally independent} given a third variable $Z$, if, for any outcomes $x,y,z$ of $X,Y$ and $Z$ such that \mbox{$P(Y=y,Z=z) > 0$}, we have
+\[
+P(X = x \mid Y=y, Z=z) = P(X=x \mid Z=z)
+\]
+In other words, if we know $Z$, then receiving new information about $Y$ does not tell us anything new about $X$.
+
+Conditional independence plays a fundamental role in probability theory in mathematics, where it underlies several areas of study, including the well-known central limit theorem (a.k.a. the ``law of large numbers'')~\cite{Polya:20} and its relatives, and Markov chains~\cite{Seneta:96}, which are used in myriad ways throughout science.  Dawid also showed that conditional independence can also be used to characterise many important concepts in the field of statistical inference~\cite{Dawid:79}.  Finally, conditional independence has also been extensively studied in the context of probabilistic reasoning in artificial intelligence, where it is used to characterise which facts are irrelevant to which others~\cite{Pearl:89,Darwiche:97}.
+
+There is a striking similarity between the ideas of independence and locality as used in the aforementioned situations, and the concepts of \emph{memory separation} and \emph{command locality} as used in \emph{separation logic}, which has become well-established in the last decade as an effective formalism for reasoning about programs that manipulate heap memory~\cite{Reynolds:02}.  Separation logic mainly hinges on two interrelated ideas: separateness or \emph{independence} of memory locations on one hand, and the \emph{locality} of commands on the other.  The interaction between these two ideas is exactly expressed by the following \emph{frame rule}, which effectively states that programs never exceed their memory footprint:
+\[\begin{prooftree}
+\htriple{P}{C}{Q}
+\justifies
+\htriple{P * R}{C}{Q * R}
+\end{prooftree}\]
+However, these ideas do not seem especially specific to program behaviour and might usefully be applied in other settings where independence and locality play a crucial role.  In particular, reasoning effectively in the presence of uncertain information fundamentally depends on knowing which events or facts are (ir)relevant to which others, which can be characterised using conditional independence in probability theory.
+
+
+\section{Conditional independence in probability theory}
+\label{sec:background}
+
+Here we give some elementary definitions from standard Bayesian probability theory, drawing on notations in~\cite{Pearl:89}.
+
+We assume an infinite set $\rvar$ of \emph{discrete random variables}, and write $X,Y,Z$, etc., to range over $\rvar$. We assume an arbitrary space of possible \emph{outcomes} for each variable; e.g., we might take the outcome space $\{1,2,3,4,5,6\}$ for a variable representing the roll of a six-sided die. An \emph{event} is obtained by assigning a suitable outcome to a random variable, e.g. $X=x$. We write vector notation for collections of variables, outcomes and events, e.g. $\vec{X}=\vec{x}$ for $X_1=x_1,\ldots,X_n=x_n$.
+
+
+%However, as a first
+%approximation, we will take the outcome space for every variable to be the set $\{\true,\false\}$, so that all random variables can be thought of simply as \emph{propositions}. Accordingly, we will slightly abuse notation by writing $X$ and $\neg X$ as respective abbreviations for the outcomes $X=\true$ and $X=\false$.
+
+\begin{definition}
+\label{defn:joint_prob_distr}
+A \emph{joint probability distribution} (over $\rvar$) is a function $\prob$ assigning, for any collection of events $X_1=x_1,\ldots,X_n=x_n$, a probability
+\[
+\prob(X_1=x_1,\ldots,X_n=x_n) \in [0,1]
+\]
+for the simultaneous occurrence of said outcomes.
+
+(An \emph{elementary event} is a collection of outcomes for \emph{all} variables in $\rvar$.  The sum of probabilities over all elementary events should be $1$.)
+\end{definition}
+
+From now on we will assume a \emph{fixed} joint probability distribution $\prob$ for $\rvar$.
+
+\begin{definition}
+\label{defn:cond_prob}
+The \emph{conditional probability} of a set of events $\vec{X}=\vec{x}$, given the knowledge that events $\vec{Z}=\vec{z}$ have occurred, is written as $\prob(\vec{X}=\vec{x} \mid \vec{Z}=\vec{z})$, defined by the formula
+\begin{equation}
+\label{eqn:cond_prob}
+\prob(\vec{X}=\vec{x} \mid \vec{Z}=\vec{z}) \defeq \frac{\prob(\vec{X}=\vec{x},\vec{Z}=\vec{z})}{\prob(\vec{Z}=\vec{z})}
+\end{equation}
+\end{definition}
+
+
+\begin{definition}[Conditional independence]
+\label{defn:cond_indep}
+Let $\vec{X},\vec{Y},\vec{Z}$ be sets of variables from $\rvar$.  $\vec{X}$ and $\vec{Y}$ are said to be \emph{conditionally independent given $\vec{Z}$}, written $\indep{\vec{X}}{\vec{Z}}{\vec{Y}}$, if:
+\begin{equation}
+\forall \vec{x},\vec{y},\vec{z}.\ P(\vec{X} = \vec{x} \mid \vec{Z} = \vec{z}) = P(\vec{X} = \vec{x} \mid \vec{Z} = \vec{z}, \vec{Y}=\vec{y})
+\end{equation}
+$\vec{X}$ and $\vec{Y}$ are called \emph{unconditionally independent} if they are conditionally dependent given $\emptyset$, the empty set of events.
+\end{definition}
+
+\begin{remark}
+A useful special case arises when the outcome space for all variables is the set $\{\true,\false\}$; in this case variables can be understood as standard \emph{propositional variables}, and any event $X=x$ can be understood as either a propositional variable or its negation, i.e., a \emph{literal}.
+\end{remark}
+
+\begin{example}
+One can imagine or invent situations in which the independence of
+two propositions is contingent on the truth or otherwise of a third
+proposition. For example:
+
+$Q$: ``it is raining'', $R$: ``I am drinking beer'' and $S$: ``rain is made of beer''.
+
+Here, we can imagine $Q$ and $R$ are unconditionally independent statements, meaning that
+\[
+\prob(Q, R) = \prob(Q)\cdot \prob(R)
+\]
+but if S should happen to be true then Q and R become correlated,
+and are no longer independent:
+\[
+\prob(Q, R \mid S) > \prob(Q\mid S)\cdot\prob(R\mid S)
+\]
+So, in this example, Q and R are independent, but they are not
+conditionally independent given S. Similarly, one can think of
+examples in which two propositions are *not* independent, but are
+conditionally independent given a third.
+\end{example}
+
+
+
+\section{Separation logic for conditional independence}
+\label{sec:logic}
+
+Here we give the outline of a substructural logic, based on separation logic, for reasoning about the conditional independence of events.
+
+To begin with, we propose that the basic ``resources'' at our disposal, analogous to heaps in $\SL$, should be states of information or knowledge about certain events.
+
+\begin{definition}
+\label{defn:infostate}
+An \emph{information state} (or ``infostate'') is a finite set of events. If $i = \{X_1=x_1,\ldots,X_n=x_n\}$ is an infostate we write $\dom{i}$ for the set of variables $X_1,\ldots,X_n$ about which $i$ has knowledge. 
+
+We define a composition function and an independence relation on infostates. The composition $\circ$ is disjoint union, as employed for heaps in separation logic: if $i$ and $j$ are infostates then $i \circ j$ is $i \cup j$ when $\dom{i} \cap \dom{j} = \emptyset$, and undefined otherwise. The conditional independence relation is simply a lifting of conditional independence on variables (Definition~\ref{defn:cond_indep}) to infostates: $\indep{i}{k}{j}$ is a shorthand for $\indep{\dom{i}}{\dom{k}}{\dom{j}}$.
+\end{definition}
+
+Next, we propose a syntax for formulas.  As a first approximation, we shall consider a propositional version of our logic only.
+
+\begin{definition}[Formula]
+\label{defn:formula}
+\emph{Formulas} of our logic are given by the following syntax:
+\[
+F ::= Q \mid \false \mid F \rightarrow F \mid \emp \mid F * F \mid F \wand F \mid F \otimes F \mid F \lolly F
+\]
+where $Q$ ranges over random variables $\rvar$ (which are here pulling ``double duty'' as propositional variables). The other Boolean connectives $\neg$, $\wedge$, $\vee$ and $\leftrightarrow$ can be defined as abbreviations in the usual way.
+\end{definition}
+
+At this point we can define the denotation of formulas as sets of infostates, defined by a satisfaction relation $i \models F$ between infostates and formulas. First, we propose the following clause for satisfaction of a
+propositional variable $Q$:
+\begin{equation}
+i \models Q \;\iff\; i = \{Q=\true\} %\mbox{ and }i(Q) = \true
+\end{equation}
+In other words, $i \models Q$ means that $i$ contains the information that $Q$ is true, and --- perhaps surprisingly --- \emph{only} that information.  This choice does not seem to be strictly necessary, but for now we slightly prefer it because it means that we do not have to worry about any extraneous information in $i$.  As we shall see shortly, the statement that $i$ knows that $Q$ is true \emph{and possibly more} will be straightforwardly expressible in any case (as $Q * \true$).
+
+Next we give the clauses for the Boolean connectives and those relating to the composition of infostates in the expected way (by analogy to separation logic).
+\[\begin{array}{r@{\hspace{0.3cm}}c@{\hspace{0.3cm}}l}
+i \models \false & \iff & \mbox{never} \\[0.2ex]
+i \models F_1 \rightarrow F_2 & \iff & i \models_\rho F_1 \mbox{ implies } i \models F_2 \\[0.2ex]
+i \models \emp & \iff & i = \emptyset \\[0.2ex]
+i \models F_1 * F_2 & \iff & \exists j_1,j_2.\ i = j_1 \circ j_2 \mbox{ and } j_1 \models F_1 \mbox{ and } j_2 \models F_2 \\[0.2ex]
+i \models F_1 \wand F_2 & \iff & \forall j, k.\ k = i \circ j \mbox{ and } j \models F_1 \mbox{ implies } k \models F_2
+\end{array}\]
+Finally, we give clauses for $\otimes$ and $\lolly$, which relate to the conditional independence of assertions.
+\[\begin{array}{r@{\hspace{0.3cm}}c@{\hspace{0.3cm}}l}
+i \models F_1 \otimes F_2 & \iff & \exists j_1,j_2.\ \indep{j_1}{i}{j_2} \mbox{ and } j_1 \models F_1 \mbox{ and } j_2 \models F_2 \\[0.2ex] 
+i \models F_1 \lolly F_2 & \iff & \forall j,k.\ \indep{i}{k}{j} \mbox{ and } j \models F_1 \mbox{ implies } k \models F_2
+\end{array}\]
+
+That is, 
+\begin{enumerate}
+\item infostate $i$ satisfies $F_1 \otimes F_2$ iff there are infostates $j_1,j_2$ such that $i$ makes $j_1$ and $j_2$ independent, and  $j_1$, $j_2$ satisfy $F_1$, $F_2$ respectively;
+
+\item $i$ satisfies $F_1 \lolly F_2$ if, given an arbitrary infostate $j$ that knows $F_1$; then if $k$ is an infostate that makes $j$ independent from $i$ then $k$ must itself satisfy $F_2$. So, interestingly enough, it is rather like an \emph{abductive} statement: any info that makes $F_1$ independent of our current info, must itself satisfy $F_2$.
+\end{enumerate}
+
+\begin{example}
+Now, returning to our ``raining beer'' example from above, we
+can write down some judgements that correspond to our intuition.
+For example, we have
+\[
+e \models Q * R\ .
+\]
+To see this, let $q$ and $r$ be infostates with $q \models Q$ and $r \models R$. Since
+$Q$ and $R$ are unconditionally independent, we have that Q and
+$R$ are conditionally independent given no information. Hence $\indep{q}{e}{r}$, and we are done.
+
+However, by a similar token, if $s$ is an infostate with $s \models S$, we also have $s \not\models Q * R$.
+\end{example}
+
+
+\section{Axioms of conditional independence}
+\label{sec:CI_axioms}
+
+
+Pearl's axiomatisation of conditional independence (known now to be necessarily incomplete):
+\begin{align}
+\label{I1}\tag{I1} & \indep{\vec{X}}{\vec{Z}}{\vec{Y}} \;\Rightarrow\; \indep{\vec{Y}}{\vec{Z}}{\vec{X}} \\
+\label{I2}\tag{I2} & \indep{\vec{X}}{\vec{Z}}{\vec{Y} \cup \vec{W}} \;\Rightarrow\; \indep{\vec{X}}{\vec{Z}}{\vec{Y}} \\
+\label{I3}\tag{I3} & \indep{\vec{X}}{\vec{Z}}{\vec{Y} \cup \vec{W}} \;\Rightarrow\; \indep{\vec{X}}{\vec{Z} \cup \vec{W}}{\vec{Y}} \\
+\label{I4}\tag{I4} & \indep{\vec{X}}{\vec{Z}}{\vec{Y}} \mbox{ and } \indep{\vec{X}}{\vec{Z} \cup \vec{Y}}{\vec{W}} \;\Rightarrow\; \indep{\vec{X}}{\vec{Z}}{\vec{W}}
+\end{align}
+
+Proposed axioms capturing Pearl's axiomatisation (note that $\ell, k$ are nominals denoting exactly one state):
+\begin{align}
+\label{L1}\tag{L1} & \seq{A \otimes B}{B \otimes A} \\
+\label{L2}\tag{L2} & \seq{A \otimes (B * C)}{A \otimes B} \\
+\label{L3}\tag{L3} & \seq{(A \otimes (B * \ell)) * \ell}{A \otimes B} \\
+\label{L4}\tag{L4} & \seq{((\ell \otimes k) * k) \wedge (\ell \otimes C)}{(\ell \otimes C)}
+\end{align}
+
+
+{\small
+\bibliographystyle{splncs03}
+\bibliography{CI_sep_refs}
+} %
+\end{document}
